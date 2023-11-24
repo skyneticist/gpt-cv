@@ -5,11 +5,6 @@ from threading import Thread
 from api import request_vision
 from video_stream import VideoStream
 
-#
-# def make_vision_request(img, callback):
-#     request_vision(img)
-#     callback()
-
 
 def main():
     print("starting threaded video stream...")
