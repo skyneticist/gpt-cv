@@ -4,7 +4,7 @@ from helpers import encode_image
 
 def request_vision(image):
     client = OpenAI()
-    client.api_key = "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"
+    client.api_key = ""
     # os.getenv("OPENAI_KEY")
 
     max_tokens = 300
