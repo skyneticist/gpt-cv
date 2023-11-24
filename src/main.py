@@ -2,8 +2,13 @@ import cv2
 import time
 
 from threading import Thread
-from src.video_stream import VideoStream
-from helpers import make_vision_request, save, update_message
+from api import request_vision
+from video_stream import VideoStream
+
+#
+# def make_vision_request(img, callback):
+#     request_vision(img)
+#     callback()
 
 
 def main():
@@ -18,11 +23,10 @@ def main():
     processing = False
     message = ""
 
-    def update_message(handle):
+    def update_message_callback():
         nonlocal processing, message
         processing = False
         message = "Done"
-        save(handle)
 
     while True:
         img = vs.read()
@@ -49,8 +53,8 @@ def main():
         elif key == ord("j") and not processing:
             processing = True
             message = "Context request received..."
-            Thread(target=make_vision_request,
-                   args=(img, update_message)).start()
+            Thread(target=request_vision,
+                   args=(img, update_message_callback)).start()
 
     cv2.destroyAllWindows()
     vs.stop()

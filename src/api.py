@@ -1,11 +1,18 @@
+import base64
+import os
+import cv2
+
 from openai import OpenAI
-from helpers import encode_image
 
 
-def request_vision(image):
+def encode_image(image):
+    _, buffer = cv2.imencode(".jpg", image)
+    return base64.b64encode(buffer).decode('utf-8')
+
+
+def request_vision(image, update_message_callback):
     client = OpenAI()
-    client.api_key = ""
-    # os.getenv("OPENAI_KEY")
+    client.api_key = os.getenv("OPENAI_KEY")
 
     max_tokens = 300
     model = "gpt-4-vision-preview"
@@ -16,7 +23,7 @@ def request_vision(image):
             "content": [
                     {
                         "type": "text",
-                        "text": "What’s in this image?\n List each thing in a Markdown table in the first column and in the second column include the original country and era of origin for the idea behind each item found."},
+                        "text": "What’s in this image? List each thing in a Markdown table in the first column and in the second column include the original country and era of origin for the idea behind each item found."},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -28,10 +35,12 @@ def request_vision(image):
     ]
 
     response = client.chat.completions.create(
-        model,
-        messages,
-        max_tokens,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
     )
+
+    update_message_callback()
 
     print(response.choices[0])
     return response.choices[0]
