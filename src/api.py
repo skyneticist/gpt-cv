@@ -40,6 +40,7 @@ def request_vision(image, update_message_callback):
         max_tokens=max_tokens,
     )
 
+    # callback invoked
     update_message_callback()
 
     print(response.choices[0])

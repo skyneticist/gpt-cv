@@ -8,15 +8,24 @@
 ### What We're Doing
 ---
 
-!!!Warning Clone/Download project here: github.com
-
 Simply put, we are building a software application that:
 
 - Displays a webcam feed.
-- Detects objects in the frame.
-- Allows capturing a screenshot.
+- Detects objects in the frame of the video feed.
+- Allows capturing a screenshot from the video.
 - Encodes the captured frame.
-- Send the encoded image data to OpenAI's `gpt4-vision`.model to be analyzed against a prompt we will include with the request. 
+- Sends the encoded image data to OpenAI's `gpt4-vision` model to be analyzed against a prompt we will include with the request.
+
+The simple example prompt used for this tutorial asks for the original country and era of origin for all objects found in an image be listed in a Markdown table. This image will be the screenshot taken from the stream of frames for the video.
+
+[🫒 Get The Code 🫒](https://github.com/skyneticist/gpt-cv)
+
+###### Prerequisites
+
+The only things you need to have ahead of time is:
+
+ 1. An internet connection to download the two dependencies we will cover next and to send our request to the OpenAI endpoint so it can be processed and a completion can be sent back to us.
+ 2. Python installed on your machine. It should be some version of Python3.
 
 ---
 ### Installing Dependencies
@@ -617,6 +626,55 @@ We call a new thread with its target set to the `request_vision` method and pass
 
 The `update_message` callback is called at the end of `request_vision`, updating the global variables to indicate the request is finished and should have received a response.
 
+Let's add a parameter for passing this callback method into `request_vision` and invoke it in the body of this metbod:
+
+```python
+# we need to add a `message_callback` parameter here
+def request_vision(image, message_callback):
+    client = OpenAI()
+    client.api_key = "<YOUR_API_KEY_NEEDED>"
+    # os.getenv("OPENAI_KEY")
+
+    max_tokens = 300
+    model = "gpt-4-vision-preview"
+
+    # call encode_image and pass `base64_image` below
+    base64_image = encode_image(image)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                    {
+                        "type": "text",
+                        "text": "What’s in this image?\n List each thing in a Markdown table in the first column and in the second column include the original country and era of origin for the idea behind each item found."},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}", # pass the encoded image here
+                        },
+                    },
+            ],
+        }
+    ]
+
+    # send request to OpenAI Vision endpoint
+    response = client.chat.completions.create(
+        model,
+        messages,
+        max_tokens,
+    )
+
+    # add this line too
+    # invoke callback parameter we just added above
+    # updating the global variables related to 
+    # message indicator drawn on frame
+    message_callback()
+
+    # print and return response
+    print(response.choices[0])
+    return response.choices[0]
+```
+
 ###### Where to Call Our Threaded API Call
 
 Before we begin writing any code we need to determine where this thread should be called from.
@@ -630,7 +688,7 @@ In our `main.py` file we use `cv2.waitKey(1)` to listen for a 'q' keypress to si
     # previous lines omitted
     # ...
 
-    cv2.imshow("output", img)
+    cv2.imshow("output", image)
 
     key = cv2.waitKey(1) & 0xFF
 
@@ -640,8 +698,9 @@ In our `main.py` file we use `cv2.waitKey(1)` to listen for a 'q' keypress to si
         break
     elif key == ord("j") and not processing:
         # Creating a new thread to handle our `request_vision()` call
-        Thread(target=make_vision_request,
-                args=(img, update_message)).start()
+        # pass the image and update_message callback function as parameters
+        Thread(target=request_vision,
+                args=(image, update_message)).start()
 
 cv2.destroyAllWindows()
 vs.stop()
@@ -684,11 +743,10 @@ This is where our global `message` variable is consumed. It is initialized as an
 We need to update the global variable that holds the message that will display on-screen.
 
 ```python
- def update_message(handle):
+ def update_message():
     nonlocal processing, message
     processing = False
     message = "Done"
-    save(handle)
 ```
 
 This method will handle updating the message displayed on each frame with one of the following:
@@ -721,7 +779,6 @@ def main():
         nonlocal processing, message
         processing = False
         message = "Done"
-        save(handle)
 
     while True:
         img = vs.read()
@@ -747,13 +804,16 @@ if key == ord("q"):
     break
 elif key == ord("j") and not processing:
 
-    # update processing to True to indicate in-process for control flow
+    # Update the processing variable. to True.
+    # This is needed to make the threaded call to `request_vision` idempotent. 
+    # Once the process has been initiated by a "j" keypress,
+    # additional keypresses are blocked from invoking another thread. 
     processing = True
 
-    # update message to indicate API call in-process to user
+    # Update message to indicate API call in-process to user
     message = "Context request received..."
 
-    # call a new thread to handle `request_vision`
+    # Call a new thread to handle `request_vision`
     Thread(target=make_vision_request,
             args=(img, update_message)).start()
 
@@ -762,6 +822,10 @@ elif key == ord("j") and not processing:
 The `update_message` callback function will update the `message` and `processing` variables, determining what to draw on each frame depending on what our application is doing. 
 
 Much better. And now we're done.
+
+Let's take a quick look at each file now that we're finished.
+
+After that we will test everything out.
 
 ---
 ### Completed Code
@@ -950,6 +1014,15 @@ Your camera should begin reading in frames and displaying the video in a new win
 
 There should be an FPS counter in the top right corner and a prompt showing the "j" key can be used to capture a screenshot and pass that image encoded in base64 with our item origin prompt--
 
+Press the "j" key or an alternative if you specified one.
+
+You should see the message "Context request received..." appear on the frame of the displayed video.
+
+The `request_vision` function will invoke the message callback upon completion. This is indicated with the message updating from "Context request received..." to "Done" on the video output.
+
+Notice while it was processing there was no stopping or blocking of the video being displayed in our window. The frames per second should have not dropped in any significant way as well.
+
+After we see the "Done" message appear on-screen we should have output in the terminal we invoked the `main.py` from. This is the completion response OpenAI generated after processing our query and image data.
 
 ###### Results
 
@@ -973,10 +1046,14 @@ There should be an FPS counter in the top right corner and a prompt showing the 
 ### See You Later 
 ---
 
-Once again, you can find the complete project's source code on Github, here: https://github.com/skyneticist/gptcv
+Once again, you can find the complete project's source code on Github, here: https://github.com/skyneticist/gpt-cv.
 
-The project's readme file is this tutorial/page in its entirety in Markdown format. So, feel free to follow along there as a convenient way to work with the code.
+The project's readme file is this tutorial in its entirety in Markdown format. So, feel free to follow along there as a convenient way to work with the code.
 
-I'm hopeful this is helpful for some and at the very least, inspires people to start using the Vision endpoint provided by OpenAI in creative, new ways.
+Also, you can view this tutorial in a slightly nicer format (my opinion of course) on the Github page I made for this project:
 
-Adios
+https://.com
+
+I'm hopeful this is helpful for some and at the very least, informs or inspires people to start using the Vision endpoint provided by OpenAI in creative, new ways.
+
+Until next time 🫒
