@@ -1,8 +1,8 @@
 import cv2
 import time
 
-from threading import Thread
 from api import request_vision
+from threading import Thread
 from video_stream import VideoStream
 
 

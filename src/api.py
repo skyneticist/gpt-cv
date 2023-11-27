@@ -1,20 +1,21 @@
 import base64
-import os
 import cv2
+import os
 
 from openai import OpenAI
 
 
 def encode_image(image):
+    cv2.imwrite("./screen1.jpg", image)
     _, buffer = cv2.imencode(".jpg", image)
     return base64.b64encode(buffer).decode('utf-8')
 
 
 def request_vision(image, update_message_callback):
-    client = OpenAI()
-    client.api_key = os.getenv("OPENAI_KEY")
+    key = os.getenv("OPENAI_KEY")
+    client = OpenAI(api_key=key)
 
-    max_tokens = 300
+    max_tokens = 350
     model = "gpt-4-vision-preview"
     base64_image = encode_image(image)
     messages = [

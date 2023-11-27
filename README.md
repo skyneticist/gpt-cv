@@ -24,8 +24,9 @@ The simple example prompt used for this tutorial asks for the original country a
 
 The only things you need to have ahead of time is:
 
- 1. An internet connection to download the two dependencies we will cover next and to send our request to the OpenAI endpoint so it can be processed and a completion can be sent back to us.
+ 1. An internet connection to download two dependencies and to send our request to the OpenAI endpoint.
  2. Python installed on your machine. It should be some version of Python3.
+ 3. An active OpenAI paid API subscription key.
 
 ---
 ### Installing Dependencies
@@ -35,7 +36,7 @@ The only things you need to have ahead of time is:
 
 It is common practice with Python projects to include a `requirements.txt` file for conveniently installing the modules the project depends on. <br><br> If you open up `requirements.txt` for the `gptcv` project, there should be two dependencies listed with their targeted version:
 
-!!!info `requirements.txt`
+**`requirements.txt`**
 
 ```
 openai==1.3.5
@@ -112,41 +113,38 @@ On the first line we are importing the `OpenAI` object from the `openai` module 
 from openai import OpenAI
 ```
 
-We import this so we can invoke it and set up a client:
+We import this so we can invoke it and set up a client that can be used to intereact with OpenAI.
 
 ```python
+# grab the key from an environment variable
 client = OpenAI()
 ```
 
 **Setting Your OpenAI Subscription Key**
 
-This `client` object is used to set the client's `api_key` property value to your paid OpenAI API subscription key:
-
-```python
-client.api_key = "<API key goes here>"
-```
+The `client` object is used to set the client's `api_key` property value to your paid OpenAI API subscription key.
 
 Note that it is best practice to NOT hardcode your api key anywhere in your source code. 
 
-An environment variable should be set instead. Then the key can be fetched from a call using `os` Python module:
+An environment variable should be set instead. Then the key can be fetched from a call using `os` Python module.
 
 ###### Setting Environment Variable
 
+Execute the following command in a terminal:
 ```bash
 export OPENAI_KEY="PUT_KEY_HERE"
 ```
 
 ###### Fetch Key From Environment
 
+Back in our code:
+
 ```python
-# "Old" hardcoded way:
-# client.api_key = "ACTUAL_KEY_HERE"
-# Fetch the environment variable by name.
-# This will be whatever you set it to, e.g. "API_KEY", "OPENAI_KEY, "GPT_KEY", etc.
-client.api_key = os.getenv("OPENAI_KEY")
+key = os.getenv("OPENAI_KEY")
+client = OpenAI(api_key=key)
 ```
 
-I've included the hardcoded method just to get you started, but be mindful when sharing any code, especially when pushing to Github--make sure to remove any sensitive information like your OpenAI API key or switch to fetching it from your machines environment as just mentioned.
+Be mindful when sharing any code, especially when pushing to Github--make sure to remove any sensitive information like your OpenAI API key or switch to fetching it from your machines environment as just mentioned.
 
 **Sending Request With OpenAI Client**
 
@@ -209,7 +207,7 @@ The `role` includes OpenAI roles such as `user` and `system`.
 
 The `content` property is a list of content to pass as queries to the model.
 
-In our case, the content list has two items, each being an object with a `type` parameter. Additional parameters are determined by what `type` of content you are wanting to send. 
+In our case, the content list has two items, each being an object with two parameters. The first parameter is always `type`. Additional parameters are determined by what `type` of content you are wanting to send. 
 
 As you can see, we are specifying `text` for our first content object and `image_url` for the second. The first object is specified as text since we want to pass a prompt with our encoded image data.
 
@@ -239,9 +237,7 @@ Next pass these variables as parameters to the `client.chat.completions.create` 
 
 ```python
 model = "gpt-4-vision-preview"
-
 max_tokens = 300
-
 messages = [
     {
         "role": "user",
@@ -270,16 +266,15 @@ response = client.chat.completions.create(
 
 Let's enclose all of this in a function named `request_vision(image)` and save it in a file named `api.py`:
 
-!!!info `api.py`
+**`api.py`**
 
 ```python
 from openai import OpenAI
-
+import os
 
 def request_vision(image):
     client = OpenAI()
-    client.api_key = "<YOUR_API_KEY_NEEDED>"
-    # os.getenv("OPENAI_KEY")
+    client.api_key = os.getenv("OPENAI_KEY")
 
     max_tokens = 300
     model = "gpt-4-vision-preview"
@@ -315,7 +310,9 @@ As I mentioned earlier, there is a reference to an item named `base64_image`.
 
 We still need to create a variable in our method above and set the encoded image to it using computer vision.
 
-Before we can encode a frame from a video stream we will need to use OpenCV and a webcam (or built-in laptop camera) to produce them.
+We'll use a new function to achieve this but first need to setup streaming frames as video from our camera in order to capture the desired image from it and pass it into this function to encode it.
+
+Let's start setting up the video recording using OpenCV, and when we're ready, we'll come back here to `api.py` to create and invoke our image-encoding function.
 
 ---
 ## OpenCV
@@ -331,7 +328,7 @@ We will write this ourselves. Check it out below:
 
 ###### VideoStream Class
 
-!!!info `VideStream.py`
+**`VideStream.py`**
 
 ```python
 from threading import Thread
@@ -366,7 +363,7 @@ class VideoStream:
 
 That is all we need to achieve significant performance gains in our application when capturing video using OpenCV. With this defined in `VideoStream.py`, we can reference the class and its methods in our `main.py` file.
 
-!!!info **`main.py`**
+**`main.py`**
 
 ```python
 import cv2
@@ -506,9 +503,9 @@ cv2.destroyAllWindows()
 vs.stop()
 ```
 
-That is the gist of our `main.py` file for now, but we're not quite done here yet. 
+That is the gist of our `main.py` file for now, but we're not quite done here yet. We still need to invoke our `request_vision` method from `api.py` from the `main` function here, but let's finish up `api.py` as we promised earlier.
 
-Now on to setting up a new method to encode image data for sending our `request_vision` api method.
+Now on to setting up a new method to encode image data for sending to our `request_vision` api method.
 
 ---
 ### Working With Image Data
@@ -546,9 +543,9 @@ def encode_image(image_path):
 
 This method provides us with the `base64_image` needed to send to OpenAI.
 
-Let's place this method in the `api.py` file where the `request_vision` method is defined:
+Let's place this method in the `api.py` file and invoke it from the `request_vision` method there:
 
-!!!info `api.py`
+**`api.py`**
 
 ```python
 from openai import OpenAI
@@ -600,7 +597,7 @@ def request_vision(image):
     return response.choices[0]
 ```
 
-The `api.py` file is now complete and we are close to the finish line.
+The `api.py` file is now complete.
 
 Next up will implement invoking the `request_vision` method without blocking our main core loop.
 
@@ -681,10 +678,16 @@ Before we begin writing any code we need to determine where this thread should b
 
 In our `main.py` file we use `cv2.waitKey(1)` to listen for a 'q' keypress to signal the application to exit. Here we can add an additional branch to our conditional for a different keypress of our choice. When that key is pressed, we can start our threaded api call, sending our encoded image data in our completions request to GPT.
 
-!!!info `main.py`
+`main.py`
 
 ```python
-    # ...
+# make sure to import the `request_vision` function
+# from `api.py` as well as the built-in Threading module
+from api import request_vision
+from threading import Thread
+
+
+    # In infintie while loop
     # previous lines omitted
     # ...
 
@@ -757,7 +760,7 @@ This method will handle updating the message displayed on each frame with one of
 
 When the asynchronous `request_vision` method is spun up in a new thread, it expects our new `update_message` function as the second parameter. The first parameter is the image itself.
 
-If it's in-process then "Context request received..." is displayed, otherwise "Done" is displayed.
+While waiting for the response from OpenAI the message "Context request received..." is displayed, otherwise "Done" is displayed.
 
 Now that we have it defined, place `update_message` inside of the main function:
 
@@ -821,9 +824,7 @@ elif key == ord("j") and not processing:
 
 The `update_message` callback function will update the `message` and `processing` variables, determining what to draw on each frame depending on what our application is doing. 
 
-Much better. And now we're done.
-
-Let's take a quick look at each file now that we're finished.
+Much better. Let's take a quick look at each file now that we're finished.
 
 After that we will test everything out.
 
@@ -843,14 +844,27 @@ project_root/
 
 ```
 
-!!!info **`main.py`**
+**`main.py`**
 
 ```python
 import cv2
 import time
 
+from api import request_vision
 from threading import Thread
-from VideoStream import VideoStream
+from video_stream import VideoStream
+
+
+def save_video(frame, filename):
+    # Define the codec and create VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    out = cv2.VideoWriter(filename, fourcc, 20.0, (900, 600))
+
+    # Write the frames to the video file
+    out.write(frame)
+
+    # Release the writer
+    out.release()
 
 
 def main():
@@ -865,15 +879,13 @@ def main():
     processing = False
     message = ""
 
-    def update_message(handle):
+    def update_message_callback():
         nonlocal processing, message
         processing = False
         message = "Done"
-        save(handle)
 
     while True:
         img = vs.read()
-
         new_frame_time = time.time()
         fps = int(1 / (new_frame_time - last_frame_time))
         last_frame_time = new_frame_time
@@ -889,6 +901,9 @@ def main():
         cv2.putText(img, message, (80, 150), cv2.FONT_HERSHEY_SIMPLEX,
                     1, (100, 255, 0), 2, cv2.LINE_AA)
 
+        # save video to file
+        save_video(img, "video_recording.avi")
+
         cv2.imshow("output", img)
 
         key = cv2.waitKey(1) & 0xFF
@@ -897,19 +912,17 @@ def main():
         elif key == ord("j") and not processing:
             processing = True
             message = "Context request received..."
-            Thread(target=make_vision_request,
-                   args=(img, update_message)).start()
+            Thread(target=request_vision,
+                   args=(img, update_message_callback)).start()
 
     cv2.destroyAllWindows()
     vs.stop()
-
 
 if __name__ == '__main__':
     main()
 ```
 
-
-!!!info `VideStream.py`
+**`VideStream.py`**
 
 ```python
 import cv2
@@ -942,26 +955,28 @@ class VideoStream:
 
 ```
 
-!!!info `api.py`
+**`api.py`**
 
 ```python
+import base64
+import cv2
+import os
+
 from openai import OpenAI
 
 
-def encode_image(image_path):
-    _, buffer = cv2.imencode(".jpg", image_path)
+def encode_image(image):
+    cv2.imwrite("./screen1.jpg", image)
+    _, buffer = cv2.imencode(".jpg", image)
     return base64.b64encode(buffer).decode('utf-8')
 
 
-def request_vision(image):
-    client = OpenAI()
-    client.api_key = "<YOUR_API_KEY_NEEDED>"
-    # os.getenv("OPENAI_KEY")
+def request_vision(image, update_message_callback):
+    key = os.getenv("OPENAI_KEY")
+    client = OpenAI(api_key=key)
 
-    max_tokens = 300
+    max_tokens = 350
     model = "gpt-4-vision-preview"
-
-    # call encode_image and pass `base64_image` below
     base64_image = encode_image(image)
     messages = [
         {
@@ -969,7 +984,7 @@ def request_vision(image):
             "content": [
                     {
                         "type": "text",
-                        "text": "What’s in this image?\n List each thing in a Markdown table in the first column and in the second column include the original country and era of origin for the idea behind each item found."},
+                        "text": "What’s in this image? List each thing in a Markdown table in the first column and in the second column include the original country and era of origin for the idea behind each item found."},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -981,16 +996,19 @@ def request_vision(image):
     ]
 
     response = client.chat.completions.create(
-        model,
-        messages,
-        max_tokens,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
     )
+
+    # callback invoked
+    update_message_callback()
 
     print(response.choices[0])
     return response.choices[0]
 ```
 
-!!!info `requirements.txt`
+**`requirements.txt`**
 
 ```
 openai==1.3.5
@@ -1010,7 +1028,7 @@ To run the program, execute our main Python script from a terminal:
 
 Your camera should begin reading in frames and displaying the video in a new window.
 
-
+![Image](./media/start.png)
 
 There should be an FPS counter in the top right corner and a prompt showing the "j" key can be used to capture a screenshot and pass that image encoded in base64 with our item origin prompt--
 
@@ -1018,7 +1036,11 @@ Press the "j" key or an alternative if you specified one.
 
 You should see the message "Context request received..." appear on the frame of the displayed video.
 
+![Image](./media/context.png)
+
 The `request_vision` function will invoke the message callback upon completion. This is indicated with the message updating from "Context request received..." to "Done" on the video output.
+
+![Image](media/done.png)
 
 Notice while it was processing there was no stopping or blocking of the video being displayed in our window. The frames per second should have not dropped in any significant way as well.
 
@@ -1026,21 +1048,17 @@ After we see the "Done" message appear on-screen we should have output in the te
 
 ###### Results
 
-| Item             | Original Country and Era of Origin                                                                 |
-| ---------------- | -------------------------------------------------------------------------------------------------- |
-| Computer monitor | USA, late 20th century (for modern flat panels)                                                    |
-| Desk             | Various, with the concept of tables dating back to Ancient Egypt                                   |
-| Chair            | Various, ancient origins (Egyptians, Greeks, and Romans had early versions)                        |
-| Wall clock       | Europe, 14th century (mechanical clocks)                                                           |
-| Couch            | Middle East, ancient origins (furniture for sitting has ancient roots)                             |
-| Carpet           | Central Asia, circa 5th century BC (Pazyryk carpet is an early example)                            |
-| Lamp             | Various, ancient origins (portable lighting devices have been around since fire was controlled)    |
-| Mirror           | Turkey (ancient Anatolia), around 6000 BC (reflective surfaces used as mirrors)                    |
-| Guitar stand     | Modern design, but the concept of stands can be traced back to furniture making of various periods |
-| Electric fan     | USA, late 19th to early 20th century (the electric desk fan)                                       |
-| Speaker          | USA, early 20th century (dynamic loudspeaker invented in the 1920s)                                |
-| Door             | Various, ancient origins (Mesopotamia, Egypt and other ancient civilizations used doors)           |
-| Wall art         | Various, prehistoric origins                                                                       |
+
+| Item | Original Country and Era of Origin |
+| --- | --- |
+| Light bulb | England (incandescent light bulb - 1800s) |
+| Desk | Mesopotamia or Egypt (concept of table-like furniture - several millennia ago) |
+| Books | Ancient Egypt (papyrus scrolls - around 3000 BCE), Codex form developed by the Romans |
+| Power drill | Germany (portable electric drill - late 1800s to early 1900s) |
+| Chess set | India (Chaturanga - 6th century) |
+| Rubber duck | United States (rubber duck as a toy - 1940s) |
+| Amplifier | United States (electronic amplification - early 20th century) |
+| Skull model | Likely Western influence (anatomical study - Renaissance Europe) |
 
 ---
 ### See You Later 
@@ -1052,7 +1070,7 @@ The project's readme file is this tutorial in its entirety in Markdown format. S
 
 Also, you can view this tutorial in a slightly nicer format (my opinion of course) on the Github page I made for this project:
 
-https://.com
+[GH Pages Website](https://skyneticist.github.io/gpt-cv/)
 
 I'm hopeful this is helpful for some and at the very least, informs or inspires people to start using the Vision endpoint provided by OpenAI in creative, new ways.
 
