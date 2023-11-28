@@ -1,7 +1,7 @@
 # Using OpenAI GPT-4 Vision Model with OpenCV
 
 
-*Learn how to setup requests to OpenAI endpoints and use the  `gpt-4-vision-preivew` endpoint with the popular open-source computer vision library `OpenCV`* 
+*Learn how to setup requests to OpenAI endpoints and use the  `gpt-4-vision-preview` endpoint with the popular open-source computer vision library `OpenCV`* 
 
 ---
 
@@ -273,10 +273,10 @@ from openai import OpenAI
 import os
 
 def request_vision(image):
-    client = OpenAI()
-    client.api_key = os.getenv("OPENAI_KEY")
+    key = os.getenv("OPENAI_KEY")
+    client = OpenAI(api_key=key)
 
-    max_tokens = 300
+    max_tokens = 350
     model = "gpt-4-vision-preview"
 
     messages = [
